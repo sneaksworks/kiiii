@@ -8,7 +8,7 @@ window.WL = window.WL || {};
   WL.API_KEY = "8b512483caf04a168b28da4791fedaa4";
 
   // News. Sign up free at finnhub.io and paste the key here.
-  WL.FINNHUB_KEY = "";
+  WL.FINNHUB_KEY = "daborjhr01qvvgl66vg0daborjhr01qvvgl66vgg";
   // Only needed if the browser gets blocked from reaching Finnhub directly.
   // Leave empty first and see if news loads without it.
   WL.NEWS_PROXY = "";
