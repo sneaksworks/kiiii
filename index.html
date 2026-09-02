@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>wicklab</title>
+<meta name="description" content="Candlestick charts with a browser side machine learning trend model.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="favicon-16.png" sizes="16x16" type="image/png">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="ambient-glow glow-top" aria-hidden="true"></div>
+  <div class="ambient-glow glow-bottom" aria-hidden="true"></div>
+
+  <main class="page">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button type="button" id="drawer-btn" class="icon-btn drawer-btn" aria-label="Open watchlist" aria-expanded="false">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <span class="wordmark">wicklab</span>
+      </div>
+      <div class="topbar-right">
+        <div class="segmented mode-toggle" id="mode-toggle" role="group" aria-label="Mode">
+          <button type="button" data-mode="live" class="active">Live</button>
+          <button type="button" data-mode="paper">Paper trading</button>
+        </div>
+        <span id="status-pill" class="status-pill">Idle</span>
+      </div>
+    </header>
+
+    <div class="layout">
+      <aside id="sidebar" class="sidebar" aria-label="Watchlist and recent searches">
+        <div class="side-block">
+          <div class="side-head">
+            <span class="side-title">Watchlist <span id="fav-count" class="side-meta"></span></span>
+            <span class="side-actions">
+              <span id="watchlist-updated" class="side-meta"></span>
+              <button type="button" id="watchlist-refresh" class="icon-btn" aria-label="Refresh watchlist">
+                <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+              <button type="button" id="drawer-close" class="icon-btn drawer-close" aria-label="Close watchlist">
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              </button>
+            </span>
+          </div>
+          <div id="watchlist" class="watchlist"></div>
+          <div id="watchlist-note" class="side-note hidden"></div>
+        </div>
+
+        <div class="side-block">
+          <div class="side-head">
+            <span class="side-title">Recent</span>
+          </div>
+          <div id="recents" class="recents"></div>
+        </div>
+      </aside>
+      <div id="drawer-backdrop" class="drawer-backdrop"></div>
+
+      <div class="content">
+        <form id="search-form" class="search-bar" autocomplete="off">
+          <input
+            type="text"
+            id="ticker-input"
+            placeholder="Search a ticker, like AAPL or TSLA"
+            aria-label="Stock ticker symbol"
+          />
+          <button type="submit" id="search-btn">View chart</button>
+        </form>
+
+        <div class="controls">
+          <div class="segmented" id="timeframes" role="group" aria-label="Timeframe">
+            <button type="button" data-tf="1m">1m</button>
+            <button type="button" data-tf="5m">5m</button>
+            <button type="button" data-tf="15m">15m</button>
+            <button type="button" data-tf="1h">1h</button>
+            <button type="button" data-tf="4h">4h</button>
+            <button type="button" data-tf="1D" class="active">1D</button>
+            <button type="button" data-tf="1W">1W</button>
+          </div>
+
+          <div class="controls-right">
+            <div class="dropdown" id="indicator-dropdown">
+              <button type="button" id="indicator-toggle" class="control-btn" aria-haspopup="true" aria-expanded="false">
+                Indicators <span id="indicator-count" class="count-badge">2</span>
+              </button>
+              <div id="indicator-panel" class="dropdown-panel" hidden></div>
+            </div>
+
+            <label class="switch">
+              <input type="checkbox" id="volume-toggle" checked>
+              <span class="switch-track" aria-hidden="true"></span>
+              <span>Volume</span>
+            </label>
+          </div>
+        </div>
+
+        <p id="status-message" class="status-message" role="status" aria-live="polite"></p>
+
+        <section class="chart-panel" id="chart-panel">
+          <div id="chart-header" class="chart-header hidden">
+            <div class="chart-title">
+              <span id="chart-symbol" class="chart-symbol"></span>
+              <button type="button" id="star-btn" class="star-btn" aria-pressed="false" aria-label="Add to watchlist">
+                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 2.5l2.9 6.2 6.8.8-5 4.7 1.3 6.8L12 17.7 6 21l1.3-6.8-5-4.7 6.8-.8z" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
+              </button>
+              <span id="chart-price" class="chart-price"></span>
+              <span id="chart-change" class="chart-change"></span>
+              <button type="button" id="fullscreen-btn" class="icon-btn fullscreen-btn" aria-pressed="false" aria-label="Fullscreen chart">
+                <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+            </div>
+            <div class="stats">
+              <div class="stat">
+                <span class="stat-label">Model bias</span>
+                <span id="stat-bias" class="stat-value">Warming up</span>
+                <span class="bias-track"><span id="bias-bar" class="bias-fill"></span></span>
+              </div>
+              <div class="stat">
+                <span class="stat-label">Trend</span>
+                <span id="stat-trend" class="stat-value">n/a</span>
+              </div>
+              <div class="stat">
+                <span class="stat-label">Volatility</span>
+                <span id="stat-vol" class="stat-value">n/a</span>
+              </div>
+              <div class="stat">
+                <span class="stat-label">Last signal</span>
+                <span id="stat-signal" class="stat-value">n/a</span>
+              </div>
+            </div>
+          </div>
+
+          <div id="skeleton" class="skeleton hidden" aria-hidden="true"></div>
+          <div id="empty-state" class="empty-state">Search a ticker above to load its chart.</div>
+          <div id="chart-container" class="chart-container hidden"></div>
+          <div id="legend" class="legend"></div>
+
+          <div id="paper-dock" class="paper-dock hidden">
+            <div class="paper-row">
+              <div class="replay-controls">
+                <button type="button" id="paper-play" class="control-btn replay-btn">Play</button>
+                <button type="button" id="paper-step" class="control-btn replay-btn">Next bar</button>
+                <div class="segmented small" id="paper-speed" role="group" aria-label="Replay speed">
+                  <button type="button" data-speed="1" class="active">1x</button>
+                  <button type="button" data-speed="2">2x</button>
+                  <button type="button" data-speed="4">4x</button>
+                </div>
+                <div class="replay-progress">
+                  <div class="progress-track"><span id="paper-progress-fill" class="progress-fill"></span></div>
+                  <span class="replay-meta"><span id="paper-bar"></span><span id="paper-date"></span></span>
+                </div>
+              </div>
+              <div class="trade-controls">
+                <input id="paper-qty" type="number" min="1" step="1" value="10" aria-label="Number of shares">
+                <button type="button" id="paper-max" class="control-btn">Max</button>
+                <button type="button" id="paper-buy" class="trade-btn buy">Buy</button>
+                <button type="button" id="paper-sell" class="trade-btn sell" disabled>Sell</button>
+              </div>
+            </div>
+
+            <div class="paper-row paper-stats">
+              <div class="stat"><span class="stat-label">Cash</span><span id="paper-cash" class="stat-value"></span></div>
+              <div class="stat"><span class="stat-label">Position</span><span id="paper-position" class="stat-value"></span></div>
+              <div class="stat equity-stat" id="paper-equity-stat"><span class="stat-label">Equity</span><span id="paper-equity" class="stat-value"></span></div>
+              <div class="stat"><span class="stat-label">Open P&amp;L</span><span id="paper-pnl" class="stat-value"></span></div>
+              <div class="stat"><span class="stat-label">Realized</span><span id="paper-realized" class="stat-value"></span></div>
+              <div class="stat"><span class="stat-label">Return</span><span id="paper-return" class="stat-value"></span></div>
+              <div class="paper-actions">
+                <button type="button" id="paper-log-toggle" class="control-btn">Trades <span id="paper-log-count" class="count-badge">0</span></button>
+                <label class="balance-field"><span>Start $</span><input id="paper-balance" type="number" min="100" step="100" value="10000" aria-label="Starting balance"></label>
+                <button type="button" id="paper-reset" class="control-btn">Reset</button>
+                <button type="button" id="paper-mute" class="icon-btn mute-btn" aria-pressed="false" aria-label="Mute trade sounds">
+                  <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path class="spk" d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path class="wave" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path class="slash" d="M4 4l16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <p id="paper-note" class="paper-note hidden"></p>
+            <div id="paper-summary" class="paper-summary hidden"></div>
+            <div id="paper-log" class="paper-log hidden"></div>
+            <p class="paper-hint">Replay drops you 150 bars back with the future hidden. Indicators only see the bars you've revealed. Long only, no fees, fills at the bar's close. Keys: right arrow steps, space plays, B buys, S sells.</p>
+          </div>
+        </section>
+
+        <section id="snapshot" class="snapshot hidden" aria-label="Company snapshot and news">
+          <div class="info-tabs" id="info-tabs" role="tablist">
+            <button type="button" id="tab-snapshot" class="info-tab active" role="tab" aria-selected="true">Snapshot</button>
+            <button type="button" id="tab-news" class="info-tab" role="tab" aria-selected="false">News</button>
+          </div>
+
+          <div id="snapshot-content">
+          <div class="snap-head">
+            <div class="snap-title">
+              <span id="snap-name" class="snap-name"></span>
+              <span id="snap-meta" class="snap-meta"></span>
+            </div>
+            <span id="snap-market" class="snap-market"></span>
+          </div>
+
+          <div id="snap-range" class="snap-range hidden">
+            <span class="snap-label">52 week range</span>
+            <div class="range-row">
+              <span id="snap-range-low" class="range-end"></span>
+              <div class="range-track">
+                <span id="snap-range-fill" class="range-fill"></span>
+                <span id="snap-range-marker" class="range-marker"></span>
+              </div>
+              <span id="snap-range-high" class="range-end"></span>
+            </div>
+          </div>
+
+          <div id="snap-tiles" class="snap-tiles"></div>
+          <p id="snap-note" class="snap-note"></p>
+          </div>
+
+          <div id="news" class="news hidden">
+            <div class="news-head">
+              <span class="snap-label">Latest headlines, past 14 days</span>
+              <button type="button" id="news-refresh" class="icon-btn" aria-label="Refresh news">
+                <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+            </div>
+            <div id="news-list" class="news-list"></div>
+            <p id="news-note" class="news-note hidden"></p>
+          </div>
+        </section>
+
+        <p class="disclaimer">
+          Signals come from a small machine learning model (k-nearest neighbors pattern matching)
+          and classic technical indicators running in your browser. They are experimental, frequently
+          wrong, and not financial advice. Nothing on this page is a real forecast.
+        </p>
+      </div>
+    </div>
+
+    <footer class="footer">
+      <span>&copy; 2026 wicklab. All rights reserved.</span>
+      <span>@milespotten</span>
+    </footer>
+  </main>
+
+  <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+  <script src="config.js"></script>
+  <script src="indicators.js"></script>
+  <script src="api.js"></script>
+  <script src="chart.js"></script>
+  <script src="watchlist.js"></script>
+  <script src="snapshot.js"></script>
+  <script src="paper.js"></script>
+  <script src="news.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
